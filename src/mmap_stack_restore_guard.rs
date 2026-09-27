@@ -24,17 +24,17 @@ impl StackRestoreGuard {
             .expect("unreasonably large stack requested");
 
         unsafe {
-            let new_stack = libc::mmap(
+            let new_stack = crate::posix::mmap(
                 std::ptr::null_mut(),
                 size_with_guard,
-                libc::PROT_NONE,
-                libc::MAP_PRIVATE | libc::MAP_ANON,
+                crate::posix::PROT_NONE,
+                crate::posix::MAP_PRIVATE | crate::posix::MAP_ANON,
                 -1, // Some implementations assert fd = -1 if MAP_ANON is specified
                 0,
             );
             assert_ne!(
                 new_stack,
-                libc::MAP_FAILED,
+                crate::posix::MAP_FAILED,
                 "mmap failed to allocate stack: {}",
                 std::io::Error::last_os_error()
             );
@@ -48,17 +48,20 @@ impl StackRestoreGuard {
             // There is one guard page below the stack and another above it.
             let above_guard_page = new_stack.add(page_size);
             #[cfg(not(target_os = "openbsd"))]
-            let result = libc::mprotect(
+            let result = crate::posix::mprotect(
                 above_guard_page,
                 size_with_guard - 2 * page_size,
-                libc::PROT_READ | libc::PROT_WRITE,
+                crate::posix::PROT_READ | crate::posix::PROT_WRITE,
             );
             #[cfg(target_os = "openbsd")]
-            let result = if libc::mmap(
+            let result = if crate::posix::mmap(
                 above_guard_page,
                 size_with_guard - 2 * page_size,
-                libc::PROT_READ | libc::PROT_WRITE,
-                libc::MAP_FIXED | libc::MAP_PRIVATE | libc::MAP_ANON | libc::MAP_STACK,
+                crate::posix::PROT_READ | crate::posix::PROT_WRITE,
+                crate::posix::MAP_FIXED
+                    | crate::posix::MAP_PRIVATE
+                    | crate::posix::MAP_ANON
+                    | crate::posix::MAP_STACK,
                 -1,
                 0,
             ) == above_guard_page
@@ -93,7 +96,7 @@ impl Drop for StackRestoreGuard {
         unsafe {
             // FIXME: check the error code and decide what to do with it.
             // Perhaps a debug_assertion?
-            libc::munmap(self.mapping as *mut std::ffi::c_void, self.size_with_guard);
+            crate::posix::munmap(self.mapping as *mut std::ffi::c_void, self.size_with_guard);
         }
         set_stack_limit(self.old_stack_limit);
     }
@@ -101,7 +104,7 @@ impl Drop for StackRestoreGuard {
 
 fn page_size() -> usize {
     // FIXME: consider caching the page size.
-    unsafe { libc::sysconf(libc::_SC_PAGE_SIZE) as usize }
+    unsafe { crate::posix::sysconf(crate::posix::SC_PAGE_SIZE) as usize }
 }
 
 #[cfg(test)]

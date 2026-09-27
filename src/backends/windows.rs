@@ -1,4 +1,4 @@
-use libc::c_void;
+use std::ffi::c_void;
 use std::io;
 use std::ptr;
 use windows_sys::core::BOOL;
@@ -8,11 +8,38 @@ use windows_sys::Win32::System::Threading::{
     SetThreadStackGuarantee, SwitchToFiber,
 };
 
-// Make sure the libstacker.a (implemented in C) is linked.
-// See https://github.com/rust-lang/rust/issues/65610
-#[link(name = "stacker")]
-extern "C" {
-    fn __stacker_get_current_fiber() -> *mut c_void;
+/// `GetCurrentFiber` is a header macro that reads `FiberData` out of the TEB.
+fn current_fiber() -> *mut c_void {
+    let mut fiber: *mut c_void;
+    unsafe {
+        #[cfg(target_arch = "x86_64")]
+        std::arch::asm!(
+            "mov {}, gs:[0x20]",
+            out(reg) fiber,
+            options(nostack, preserves_flags, readonly)
+        );
+        #[cfg(target_arch = "x86")]
+        std::arch::asm!(
+            "mov {}, fs:[0x10]",
+            out(reg) fiber,
+            options(nostack, preserves_flags, readonly)
+        );
+        #[cfg(target_arch = "aarch64")]
+        {
+            let teb: *const u8;
+            std::arch::asm!(
+                "mov {}, x18",
+                out(reg) teb,
+                options(nostack, preserves_flags, readonly)
+            );
+            fiber = core::ptr::read_unaligned(teb.add(0x20) as *const *mut c_void);
+        }
+        #[cfg(not(any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64")))]
+        {
+            fiber = core::ptr::null_mut();
+        }
+    }
+    fiber
 }
 
 struct FiberInfo<F> {
@@ -50,7 +77,7 @@ pub fn _grow(stack_size: usize, callback: &mut dyn FnMut()) {
                 if was_fiber {
                     // Get a handle to the current fiber. We need to use a C implementation
                     // for this as GetCurrentFiber is an header only function.
-                    __stacker_get_current_fiber()
+                    current_fiber()
                 } else {
                     // Convert the current thread to a fiber, so we are able to switch back
                     // to the current stack. Threads coverted to fibers still act like

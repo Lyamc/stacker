@@ -26,13 +26,14 @@
 
 #[macro_use]
 extern crate cfg_if;
-extern crate libc;
 #[cfg(windows)]
 extern crate windows_sys;
 #[macro_use]
 extern crate psm;
 
 mod backends;
+#[cfg(unix)]
+mod posix;
 
 use std::cell::Cell;
 
