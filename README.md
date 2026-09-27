@@ -1,6 +1,6 @@
 # stacker
 
-This is a fork of `stacker` 0.1.25, kept for [cabin](https://github.com/Lyamc/cabin). GPUI uses it, through `stacksafe`, to grow the stack during layout. Upstream depends on the `libc` crate and, on Windows, compiles a small C file with `cc` to read the current fiber. This fork reads `FiberData` from the thread environment block in Rust, and declares the Unix `mmap` and pthread calls directly with the same flag values as the platform headers. Stack growth behavior is unchanged.
+This is a fork of `stacker` 0.1.25, kept for [cabin](https://github.com/Lyamc/cabin). GPUI uses it, through `stacksafe`, to grow the stack during layout. Upstream depends on the `libc` crate and, on Windows, compiles a small C file with `cc` to read the current fiber. This fork reads `FiberData` from the thread environment block in Rust, and declares the Unix `mmap` and pthread calls directly with the same flag values as the platform headers. The bundled `psm` crate no longer compiles its assembly with `cc`; rustc assembles those instructions. Stack growth behavior is unchanged.
 
 [![Build Status](https://github.com/rust-lang/stacker/actions/workflows/test.yml/badge.svg)](https://github.com/rust-lang/stacker/actions)
 

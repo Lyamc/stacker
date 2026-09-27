@@ -12,6 +12,9 @@
 #![allow(unused_macros)]
 #![no_std]
 
+#[cfg(all(not(miri), any(target_arch = "x86_64", target_arch = "x86", target_arch = "aarch64")))]
+mod asm;
+
 macro_rules! extern_item {
     (unsafe $($toks: tt)+) => {
         unsafe extern "C" $($toks)+
